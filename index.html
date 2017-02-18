@@ -1,0 +1,340 @@
+<!-- 检测逻辑
+	 1、直线连接：判断 (DOM1.X===DOM2.X || DOM1.Y===DOM2.Y) && ( isBlockBetween(DOM1,DOM2) === false)
+	 2、有一个转折点：判断DOM1和DOM2的相对位置	设置虚拟点
+					  调用直线连接方法进行判断
+	 3、有两个转折点   以其中的的一个DOM为基准，进行状态判断 在状态为空的方向有哪几个方向
+						在其中一个空状态方向，逐步设置虚拟点，
+						调用有一个转折点方法进行判断
+ -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>连连看</title>
+	<style type="text/css">
+		*{
+			margin: 0;
+			padding: 0; 
+			box-sizing:border-box;
+		}
+		body{
+			background: #ccc;
+		}
+		.container{
+			width: 640px;
+			height: 640px;
+			background: skyblue;
+			margin: 8px auto;
+			position: relative;
+		}
+		.box{
+			width: 80px;
+			height: 80px;
+			border: 1px solid black;
+			float:left;
+		}
+		.bg0{
+			background:url('images/apple.jpg') no-repeat;
+			background-size: 80px 80px;
+		}
+		.bg1{
+			background:url('images/banana.jpg') no-repeat;
+			background-size: 80px 80px;
+		}
+		.bg2{
+			background:url('images/grape.jpg') no-repeat;
+			background-size: 80px 80px;
+		}
+		.bg3{
+			background:url('images/pear.jpg') no-repeat;
+			background-size: 80px 80px;
+		}
+		.bg4{
+			background:url('images/pineapple.jpg') no-repeat;
+			background-size: 80px 80px;
+		}
+		.bg5{
+			background:url('images/watermelon.jpg') no-repeat;
+			background-size: 80px 80px;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+		<div class="box"></div>
+	</div>
+<script type="text/javascript">
+	var boxs = document.getElementsByClassName('box');
+	var container = document.getElementsByClassName('container')[0];
+	var numClick = 0;
+	var domClick=[{},{}];
+
+	initial();
+
+//click开始游戏
+	container.onclick = function(event){
+		numClick++;
+		var event = event || window.event;
+        var pageX = event.pageX || event.clientX + document.documentElement.scrollLeft;
+        var pageY = event.pageY || event.clientY + document.documentElement.scrollTop;
+        var boxX = pageX - container.offsetLeft;
+        var boxY = pageY - container.offsetTop;
+        if(numClick%2 !== 0){
+         	domClick[0] = getPos(boxX,boxY);   
+        }else{
+        	domClick[1] = getPos(boxX,boxY);   
+        }
+        if((numClick>1)&&(domClick[0].N != domClick[1].N)&&(boxs[domClick[0].N].className == boxs[domClick[1].N].className)) {
+        	if(firCondition(domClick)){
+        	//第一种情况：直线消除
+        		return true;
+				numClick = 0;
+				domClick=[{},{}];
+     		}else if(secCondition(domClick)){
+        	//第二种情况：有一个转折点
+        		return true;
+				numClick = 0;
+				domClick=[{},{}];
+        	}else if(thirCondtion(domClick)){
+        	//消除的第三种情况：有两个转折点
+        		return true;
+				numClick = 0;
+				domClick=[{},{}];
+        	}else{
+        		return false;
+				numClick = 0;
+				domClick=[{},{}];
+        	}
+        }
+	}
+
+
+//初始化
+	function initial(){
+		do{
+			for(var i=0;i<boxs.length;i++){
+				var rand = parseInt(Math.random()*6);
+				boxs[i].className = "box bg" + rand;
+			}
+		}while(!isAllEven(boxs))
+	}
+//判断是否含有对象是否含有某个类
+	function hasClass(dom1,class1){
+		var allClass = dom1.className;
+		var index = allClass.indexOf(class1);
+		if(index >= 0){
+			return true;
+		}else{
+			return false;
+		}
+	}
+//判断是否每种水果的数量都是偶数
+	function isAllEven(doms){
+			var arrayClass = [0,0,0,0,0,0];
+			for(var j= 0;j < boxs.length;j++){
+				if(hasClass(boxs[j],'bg0')){arrayClass[0]++};
+				if(hasClass(boxs[j],'bg1')){arrayClass[1]++};
+				if(hasClass(boxs[j],'bg2')){arrayClass[2]++};
+				if(hasClass(boxs[j],'bg3')){arrayClass[3]++};
+				if(hasClass(boxs[j],'bg4')){arrayClass[4]++};
+				if(hasClass(boxs[j],'bg5')){arrayClass[5]++};
+			}
+			for(var k=0;k<arrayClass.length;k++){
+				if(arrayClass[k]%2 !== 0){
+					return false;
+				}
+			}
+			return true;
+	}
+//判断盒子的位置
+	function getPos(x,y){
+		var boxPos = {};
+		boxPos.X = parseInt(y/80);
+		boxPos.Y = parseInt(x/80);
+		boxPos.N = boxPos.X*8+boxPos.Y;
+		return boxPos;
+	}
+//判断两个盒子之间是否有其他盒子
+	function isBlockBetween(clickBox){
+		var t;
+		if(clickBox[0].X === clickBox[1].X){
+			if(clickBox[0].Y > clickBox[1].Y){
+				t=clickBox[0];
+				clickBox[0] = clickBox[1];
+				clickBox[1] = t;
+			}
+			for(var i=clickBox[0].Y+1;i<clickBox[1].Y;i++){
+				if(boxs[clickBox[0].X*8+i].className !== 'box'){
+					return true;
+				}
+			}
+			return false;
+		}
+		if(clickBox[0].Y === clickBox[1].Y){
+			if(clickBox[0].X > clickBox[1].X){
+				t=clickBox[0];
+				clickBox[0] = clickBox[1];
+				clickBox[1] = t;
+			}
+			for(var i=clickBox[0].X+1;i<clickBox[1].X;i++){
+				if(boxs[i*8+clickBox[0].Y].className !== 'box'){
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+//消除的第一种情况
+	function firCondition(clickBox){
+		if(((clickBox[0].X === clickBox[1].X)||(clickBox[0].Y === clickBox[1].Y))&&(!isBlockBetween(clickBox))){
+			boxs[clickBox[0].N].className="box";
+			boxs[clickBox[1].N].className="box";
+			return true;
+		}else{
+			return false;
+		}
+	}
+//消除的第二种情况：有一个转折点
+	function secCondition(clickBox){
+		var virtualPoint = [{X:clickBox[0].X,Y:clickBox[1].Y,N:clickBox[0].X*8+clickBox[1].Y},{X:clickBox[1].X,Y:clickBox[0].Y,N:clickBox[1].X*8+clickBox[0].Y}];
+		if((boxs[virtualPoint[0].N].className == "box")&&(!isBlockBetween([clickBox[0],virtualPoint[0]]))&&(!isBlockBetween([clickBox[1],virtualPoint[0]]))){
+			boxs[virtualPoint[0].N].className = boxs[clickBox[0].N].className;
+			firCondition([virtualPoint[0],clickBox[0]]);
+			boxs[virtualPoint[0].N].className = boxs[clickBox[1].N].className;
+			firCondition([virtualPoint[0],clickBox[1]]);
+			return true;
+		}else if((boxs[virtualPoint[1].N].className == "box")&&(!isBlockBetween([clickBox[0],virtualPoint[1]]))&&(!isBlockBetween([clickBox[1],virtualPoint[1]]))){
+			boxs[virtualPoint[1].N].className = boxs[clickBox[0].N].className;
+			firCondition([virtualPoint[1],clickBox[0]]);
+			boxs[virtualPoint[1].N].className = boxs[clickBox[1].N].className;
+			firCondition([virtualPoint[1],clickBox[1]]);
+			return true;
+		}
+		return false;
+	}
+//消除的第三种情况：有两个转折点
+	function thirCondtion(clickBox){
+		var i_left = 1;
+		var i_right = 1;
+		var i_top = 1;
+		var i_bottom = 1;
+		//往左边进行判断
+		while((clickBox[0].Y-i_left >= 0) && (boxs[clickBox[0].N-i_left].className=="box")){
+			var virtualPoint2 = {X:clickBox[0].X,Y:clickBox[0].Y-i_left,N:clickBox[0].X*8+clickBox[0].Y-i_left};
+			boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+			if(secCondition([virtualPoint2,clickBox[1]])){
+				boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+				firCondition([virtualPoint2,clickBox[0]]);
+				return true;
+			}else{
+				boxs[virtualPoint2.N].className = "box";
+			}
+			i_left++;
+		}
+		//往右边进行判断
+		while((clickBox[0].Y+i_right <= 7) && (boxs[clickBox[0].N+i_right].className=="box")){
+			var virtualPoint2 = {X:clickBox[0].X,Y:clickBox[0].Y+i_right,N:clickBox[0].X*8+clickBox[0].Y+i_right};
+			boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+			if(secCondition([virtualPoint2,clickBox[1]])){
+				boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+				firCondition([virtualPoint2,clickBox[0]]);
+				return true;
+			}else{
+				boxs[virtualPoint2.N].className = "box";
+			}
+			i_right++;
+		}
+		//往上边进行判断
+		while((clickBox[0].X-i_top >= 0) && (boxs[clickBox[0].N-i_top*8].className=="box")){
+			var virtualPoint2 = {X:clickBox[0].X-i_top,Y:clickBox[0].Y,N:(clickBox[0].X-i_top)*8+clickBox[0].Y};
+			boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+			if(secCondition([virtualPoint2,clickBox[1]])){
+				boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+				firCondition([virtualPoint2,clickBox[0]]);
+				return true;
+			}else{
+				boxs[virtualPoint2.N].className = "box";
+			}
+			i_top++;
+		}
+		//往下边进行判断
+		while((clickBox[0].X+i_bottom <= 7) && (boxs[clickBox[0].N+i_bottom*8].className=="box")){
+			var virtualPoint2 = {X:clickBox[0].X+i_bottom,Y:clickBox[0].Y,N:(clickBox[0].X+i_bottom)*8+clickBox[0].Y};
+			boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+			if(secCondition([virtualPoint2,clickBox[1]])){
+				boxs[virtualPoint2.N].className = boxs[clickBox[0].N].className;
+				firCondition([virtualPoint2,clickBox[0]]);
+				return true;
+			}else{
+				boxs[virtualPoint2.N].className = "box";
+			}
+			i_bottom++;
+		}
+		return false;
+	}
+</script>
+</body>
+</html>
